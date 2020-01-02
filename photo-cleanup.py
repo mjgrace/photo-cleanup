@@ -5,6 +5,7 @@ import hashlib
 import json
 import requests
 from datetime import datetime
+import pytz
 from geopy.distance import geodesic
 from pyexiftool import exiftool
 
@@ -75,33 +76,28 @@ for (root, dirnames, filenames) in os.walk(PATH):
       longitude = ""
       live_video = False
       if photo.extension.lower() == "jpg" or photo.extension.lower() == "jpeg":
-        # for (key, value) in metadata.items():
-        #   print("\t" + str(key) + "\t" + str(value))
-        date_taken = metadata.get("EXIF:DateTimeOriginal", datetime.now().strftime("%Y:%m:%d %H:%M:%S")) + metadata.get("EXIF:OffsetTimeOriginal", '-04:00')
+        date_taken = metadata.get("EXIF:DateTimeOriginal", datetime.now(pytz.utc).astimezone(pytz.timezone('US/Eastern')).strftime("%Y:%m:%d %H:%M:%S")) + metadata.get("EXIF:OffsetTimeOriginal", '-04:00')
         latitude = metadata.get("Composite:GPSLatitude", DEFAULT_LATITUDE)
         longitude = metadata.get("Composite:GPSLongitude", DEFAULT_LONGITUDE)
-        # latitude = metadata.get("EXIF:GPSLatitude", DEFAULT_LATITUDE)
-        # if metadata.get("EXIF:GPSLatitudeRef", "") == "S":
-        #   latitude = -latitude
-        # longitude = metadata.get("EXIF:GPSLongitude", DEFAULT_LONGITUDE)
-        # if metadata.get("EXIF:GPSLongitudeRef", "") == "W":
-        #   longitude = -longitude
       elif photo.extension.lower() == "png":
-        date_taken = metadata.get("EXIF:DateTimeOriginal", datetime.now().strftime("%Y:%m:%d %H:%M:%S")) + "-04:00"
+        date_taken = metadata.get("EXIF:DateTimeOriginal", datetime.now(pytz.utc).astimezone(pytz.timezone('US/Eastern')).strftime("%Y:%m:%d %H:%M:%S")) + "-04:00"
         latitude = DEFAULT_LATITUDE
         longitude = DEFAULT_LONGITUDE
       elif photo.extension.lower() == "mov":
         if metadata.get("QuickTime:Live-photoAuto") == 1 or metadata.get("QuickTime:ContentIdentifier", "") != "":
           live_video = True
-        date_taken = metadata.get("QuickTime:CreationDate", datetime.now().strftime("%Y:%m:%d %H:%M:%S%z"))
+        date_taken = metadata.get("QuickTime:CreationDate", datetime.now(pytz.utc).astimezone(pytz.timezone('US/Eastern')).strftime("%Y:%m:%d %H:%M:%S%z"))
         latitude = metadata.get("Composite:GPSLatitude", DEFAULT_LATITUDE)
         longitude = metadata.get("Composite:GPSLongitude", DEFAULT_LONGITUDE)
       elif photo.extension.lower() == "mp4":
-        date_taken = metadata.get("QuickTime:CreateDate", datetime.now().strftime("%Y:%m:%d %H:%M:%S")) + "-04:00"
+        date_taken = metadata.get("QuickTime:CreateDate", datetime.now(pytz.utc).astimezone(pytz.timezone('US/Eastern')).strftime("%Y:%m:%d %H:%M:%S")) + "-04:00"
         latitude = metadata.get("Composite:GPSLatitude", DEFAULT_LATITUDE)
         longitude = metadata.get("Composite:GPSLongitude", DEFAULT_LONGITUDE)
       else:
         continue
+
+      for (key, value) in metadata.items():
+        print("\t" + str(key) + "\t" + str(value))
 
       if date_taken == "":
         photo.date_taken = datetime.now
@@ -128,6 +124,7 @@ for (md5, photo) in photos.items():
     os.rename(duplicate, PATH + "/Duplicates/" + photo.base_filename)
   buckets = list(filter(lambda x: x.date_taken.strftime("%Y_%m_%d") == photo.date_taken.strftime("%Y_%m_%d") and geodesic((x.latitude, x.longitude), (photo.latitude, photo.longitude)).miles < RADIUS_MILES, photo_buckets))
   if len(buckets) > 0:
+    print("Distance " + str(geodesic((buckets[0].latitude, buckets[0].longitude), (photo.latitude, photo.longitude)).miles) + " " + str(geodesic((buckets[0].latitude, buckets[0].longitude), (photo.latitude, photo.longitude)).miles < RADIUS_MILES))
     buckets[0].photos.append(photo)
     print("\t" + "Existing Bucket " + str(buckets[0].bucket_name) + " " + str(len(buckets[0].photos)))
   else:
